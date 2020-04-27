@@ -1,12 +1,9 @@
 import telebot as tb
-import proxy_changer
 import spotify
 from to_json import to_json
 
 
-proxy = proxy_changer.read_proxy()
 bot = tb.TeleBot('940145749:AAENwzTWDnBkbCXwJZ8Fw7XdS0GCM5CgZoU', threaded=False)
-tb.apihelper.proxy = proxy_changer.set_proxy(proxy)
 spotify_client = spotify.Spotify()
 track_data = {}
 
@@ -56,15 +53,5 @@ def query_handler(query):
         bot.send_audio(chat_id=query.message.chat.id, audio=track_data[query.data])
 
 
-try:
-    # Запускаем бота
-    bot.polling()
+bot.polling()
 
-# Если прокси отваливается
-except OSError:
-    bot.stop_polling()
-
-    proxy = proxy_changer.get_proxy()
-    proxy_changer.write_proxy(proxy)
-
-    bot.polling()

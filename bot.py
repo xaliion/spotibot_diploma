@@ -10,6 +10,7 @@ bot = tb.TeleBot('940145749:AAENwzTWDnBkbCXwJZ8Fw7XdS0GCM5CgZoU', threaded=False
 tb.apihelper.proxy = proxy_changer.set_proxy(proxy)
 spotify_client = spotify.Spotify()
 track_data = {}
+search_state = None
 # настройка логера
 bot_logger = logging.getLogger('bot')
 logging.basicConfig(filename='bot.log', level=logging.INFO,
@@ -27,9 +28,28 @@ def welcome(message):
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'поиск артиста')
-def get_artist_name(message):
-    bot.send_message(chat_id=message.chat.id, text='Кого искать?')
-    bot.register_next_step_handler(message, search_artist)
+def set_state_search_artist(message):
+    global search_state
+    search_state = 'artist'
+    bot.send_message(message.chat.id, 'Какого артиста искать?')
+
+
+@bot.message_handler(func=lambda message: message.text.lower() == 'поиск трека')
+def set_state_search_track(message):
+    global search_state
+    search_state = 'track'
+    bot.send_message(message.chat.id, 'Какой трек искать?')
+
+
+@bot.message_handler(content_types=['text'])
+def main(message):
+    if search_state == 'artist':
+        search_artist(message)
+    elif search_state == 'track':
+        search_track(message)
+    else:
+        bot.send_message(message.chat.id, 'Нужно искать треки или артистов?',
+                         reply_markup=spotify_client.make_search_button())
 
 def search_artist(message):
         artist = spotify_client.search_artist(message.text)
@@ -42,12 +62,6 @@ def search_artist(message):
                            caption=artist.name, reply_markup=artist.button)
             bot_logger.info('Artist "{}" found, user – {}'.format(message.text,
                                                                     message.from_user.username))
-
-
-@bot.message_handler(func=lambda message: message.text.lower() == 'поиск трека')
-def get_track_name(message):
-    bot.send_message(chat_id=message.chat.id, text='Какой трек искать?')
-    bot.register_next_step_handler(message, search_track)
 
 def search_track(message):
     track = spotify_client.search_track(message.text)
@@ -79,7 +93,7 @@ def query_handler(query):
 try:
     bot.polling()
 except OSError:
-    bot_logger.exception()
+    bot_logger.exception('Disconnected proxy, geting new proxy')
     bot.stop_polling()
     proxy = proxy_changer.get_proxy()
     proxy_changer.write_proxy(proxy)

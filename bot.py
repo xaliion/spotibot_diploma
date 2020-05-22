@@ -3,20 +3,14 @@ import spotify
 import logging
 import configparser
 import hashlib
-from to_json import to_json
-import proxy_changer
 
 
-proxy = proxy_changer.read_proxy()
 config = configparser.ConfigParser()
 config.read("config.ini")
 bot = tb.TeleBot(config['bot']['token'], threaded=False)
-tb.apihelper.proxy = proxy_changer.set_proxy(proxy)
 spotify_client = spotify.Spotify()
 track_data = {}
 search_state = None
-# настройка логера
-# мой – 223470289, 240738070
 bot_logger = logging.getLogger(config['logger']['title'])
 logging.basicConfig(filename=config['logger']['filename'], level=logging.INFO,
                     format=config['logger']['text_format'],
@@ -116,8 +110,4 @@ try:
 except OSError:
     bot_logger.exception('Disconnected, geting new proxy')
     bot.stop_polling()
-    proxy = proxy_changer.get_proxy()
-    proxy_changer.write_proxy(proxy)
-    bot_logger.info('Connect to a new proxy, ip – {}'.format(proxy_changer.proxy_info(proxy)['ip']))
     bot.polling()
-

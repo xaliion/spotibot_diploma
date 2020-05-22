@@ -1,21 +1,26 @@
 import telebot as tb
 import spotify
 import logging
+import configparser
+import hashlib
 from to_json import to_json
 import proxy_changer
 
 
 proxy = proxy_changer.read_proxy()
-bot = tb.TeleBot('940145749:AAENwzTWDnBkbCXwJZ8Fw7XdS0GCM5CgZoU', threaded=False)
+config = configparser.ConfigParser()
+config.read("config.ini")
+bot = tb.TeleBot(config['bot']['token'], threaded=False)
 tb.apihelper.proxy = proxy_changer.set_proxy(proxy)
 spotify_client = spotify.Spotify()
 track_data = {}
 search_state = None
 # настройка логера
-bot_logger = logging.getLogger('bot')
-logging.basicConfig(filename='bot.log', level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s\n',
-                    datefmt='%d.%m.%Y %H:%M')
+# мой – 223470289, 240738070
+bot_logger = logging.getLogger(config['logger']['title'])
+logging.basicConfig(filename=config['logger']['filename'], level=logging.INFO,
+                    format=config['logger']['text_format'],
+                    datefmt=config['logger']['date_format'])
 
 
 @bot.message_handler(commands=['start'])
@@ -25,6 +30,22 @@ def welcome(message):
         text='Привет.\nПока что я умею искать только артистов и треки',
         reply_markup=spotify_client.make_search_button()
         )
+
+
+@bot.message_handler(commands=['log'])
+def send_log(message):
+    user_id = '{}'.format(message.from_user.id)
+    hex_user_id = hashlib.sha256(user_id.encode('utf-8')).hexdigest()
+    if hex_user_id in config['permissions']['list_log_permissions']:
+        log = open('./bot.log')
+        bot.send_document(message.chat.id, log)
+    else:
+        bot.send_message(message.chat.id, 'У вас нет доступа к логу')
+
+
+@bot.message_handler(content_types=['sticker'])
+def sticker(message):
+    bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAIHZF7Hth0YOndd71fohOEqcSniJ4fcAAL_BwAC-gu2CMha9691__jVGQQ')
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'поиск артиста')
@@ -86,14 +107,14 @@ def query_handler(query):
                        caption=track.name)
         bot_logger.info('Track preview was sent')
     else:
-        bot.send_message(query.message.chat.id, 'Не могу найти этот трек у себя')
+        bot.send_message(query.message.chat.id, 'Не могу найти превью трека')
         bot_logger.warning('Track preview wasn`t sent, not found id')
 
 
 try:
     bot.polling()
 except OSError:
-    bot_logger.exception('Disconnected proxy, geting new proxy')
+    bot_logger.exception('Disconnected, geting new proxy')
     bot.stop_polling()
     proxy = proxy_changer.get_proxy()
     proxy_changer.write_proxy(proxy)

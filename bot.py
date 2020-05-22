@@ -1,8 +1,10 @@
+from time import sleep
 import telebot as tb
+import configparser
 import spotify
 import logging
-import configparser
 import hashlib
+
 
 
 config = configparser.ConfigParser()
@@ -108,6 +110,7 @@ def query_handler(query):
 try:
     bot.polling()
 except OSError:
-    bot_logger.exception('Disconnected, geting new proxy')
+    bot_logger.exception('Disconnected, restart bot in 10 seconds')
+    sleep(10)
     bot.stop_polling()
     bot.polling()

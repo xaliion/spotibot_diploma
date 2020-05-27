@@ -1,3 +1,4 @@
+from config_updater import update_config
 from time import sleep
 import telebot as tb
 import configparser
@@ -8,11 +9,11 @@ import hashlib
 
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read('./config.ini')
 bot = tb.TeleBot(config['bot']['token'], threaded=False)
 spotify_client = spotify.Spotify()
 track_data = {}
-search_state = None
+search_state = config['bot']['search_state']
 bot_logger = logging.getLogger(config['logger']['title'])
 logging.basicConfig(filename=config['logger']['filename'], level=logging.INFO,
                     format=config['logger']['text_format'],
@@ -32,14 +33,14 @@ def welcome(message):
 def send_log(message):
     user_id = '{}'.format(message.from_user.id)
     hex_user_id = hashlib.sha256(user_id.encode('utf-8')).hexdigest()
-    if hex_user_id in config['permissions']['list_log_permissions']:
+    if hex_user_id in config['permissions']['log_permissions']:
         log = open('./bot.log')
         bot.send_document(message.chat.id, log)
     else:
         bot.send_message(message.chat.id, 'У вас нет доступа к логу')
 
 
-@bot.message_handler(content_types=['sticker'])
+@bot.message_handler(content_types=config['bot']['exclusive_content_types'])
 def sticker(message):
     bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAIHZF7Hth0YOndd71fohOEqcSniJ4fcAAL_BwAC-gu2CMha9691__jVGQQ')
 
@@ -49,6 +50,8 @@ def set_state_search_artist(message):
     global search_state
     search_state = 'artist'
     bot.send_message(message.chat.id, 'Какого артиста искать?')
+    config.set('bot', 'search_state', 'artist')
+    update_config('./config.ini', config)
 
 
 @bot.message_handler(func=lambda message: message.text.lower() == 'поиск трека')
@@ -56,6 +59,8 @@ def set_state_search_track(message):
     global search_state
     search_state = 'track'
     bot.send_message(message.chat.id, 'Какой трек искать?')
+    config.set('bot', 'search_state', 'track')
+    update_config('./config.ini', config)
 
 
 @bot.message_handler(content_types=['text'])
